@@ -1,0 +1,23 @@
+# Credenciais e configuração local
+.env
+.env.*
+gcp-oauth.keys.json
+google-calendar.token.json
+*.token.json
+
+# Ambiente e arquivos gerados
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.log
+temp/
+entregas/
+
+# Configuração pessoal do editor
+.cursor/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

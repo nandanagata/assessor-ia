@@ -1,0 +1,18 @@
+fastapi
+uvicorn
+python-dotenv
+langchain
+langgraph
+langchain-google-genai
+langchain-groq
+langchain-community
+langchain-text-splitters
+pypdf
+psycopg2-binary
+pymongo
+pydantic
+qdrant-client
+mcp[cli]>=2,<3
+google-auth-oauthlib
+httpx
+tzdata; sys_platform == "win32"
