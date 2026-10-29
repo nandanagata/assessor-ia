@@ -156,18 +156,9 @@ esperados de interceptar, adiar, transacionar e compensar e, depois, apresenta
 as medições de antes e depois. As três alternativas descartadas não foram
 implementadas nem tiveram seu desempenho medido.
 
-Os resultados, cinco gráficos e o método estão em
-[`docs/desempenho/comparacao_desempenho.md`](docs/desempenho/comparacao_desempenho.md).
-São dez tentativas financeiras e um bloqueio por versão, com o mesmo fallback
-Groq real nos dois lados. A tentativa com a configuração original foi
-interrompida pela cota do Gemini e ficou registrada separadamente.
-
-Houve erros nas duas versões; os gráficos preservam essas falhas. A amostra
-não comprova melhora de desempenho nem cumprimento dos SLOs. A comparação
-não alterou modelos ou parâmetros da aplicação. Os scripts
-`tests/comparar_desempenho.py` e `tests/gerar_graficos_desempenho.py` reproduzem
-as medições e as figuras. O primeiro consome cota real; o segundo apenas lê
-os dados salvos e usa Matplotlib para desenhar, sem nova dependência do app.
+As medições e seus limites estão no próprio `decisao_tecnica.md`. Houve
+falhas nas duas versões e os SLOs não foram atingidos nessa rodada.
+O material auxiliar de desempenho ficou arquivado localmente.
 
 ## 9. Entrega da Etapa 8
 
@@ -176,7 +167,7 @@ raiz, com a justificativa e as listas de arquivos criados e modificados.
 Preserve o commit anterior para permitir a comparação. O HTML da prática
 não especifica um novo ZIP, PDF, vídeo ou canal de envio ao professor.
 
-A seleção de entrega contém `app/`, `tests/`, `docs/desempenho/`, `.gitignore`, `README.md`,
+A seleção de entrega contém `app/`, `tests/`, `.gitignore`, `README.md`,
 `requirements.txt`, `LICENSE` e `decisao_tecnica.md`. O arquivo vazio
 `app/tools/connection.py` fica fora dessa seleção. Não inclua `.env`, chaves,
 tokens, `.venv`, caches, `temp/`, `.cursor/` ou relatórios antigos locais.
@@ -186,6 +177,5 @@ permanecer no histórico. A cota do Gemini estava esgotada no último diagnósti
 precisa de credenciais com cota disponível e dos serviços ativos. A latência
 observada acima do SLO e o limite dos testes do Google estão documentados.
 
-A entrega inclui a documentação e os gráficos de desempenho. O commit citado
-para a implementação identifica a versão usada na comparação; as revisões
-da documentação e as evidências complementam essa versão.
+A explicação da solução e os resultados das medições estão concentrados
+no `decisao_tecnica.md`. Os testes essenciais e suas evidências acompanham o código.

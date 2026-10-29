@@ -142,8 +142,8 @@ Os empréstimos dessa conexão foram executados um por vez nas duas versões.
 Assim, não medimos o tempo de abrir conexões físicas nem o comportamento com
 vários usuários simultâneos. Nenhum registro pessoal foi alterado.
 
-Os dados e os cinco gráficos estão no
-[relatório de desempenho](docs/desempenho/comparacao_desempenho.md).
+Esta tabela reúne os resultados da medição. Os dados brutos e os materiais
+auxiliares ficaram arquivados localmente, fora da entrega.
 O resultado importante para a Etapa 8 foi preservado: na versão corrigida,
 as criações recusadas ou interrompidas por falha antes do commit não ficaram
 salvas; as três criações aprovadas tiveram um commit cada.
@@ -222,19 +222,6 @@ como criados em relação ao repositório.
 - `tests/frontend_session.test.js`: testa cinco situações do encerramento e da troca de sessão.
 - `tests/verificar_postgres_etapa8.py`: compara a versão anterior e a corrigida em tabelas temporárias do Postgres.
 - `tests/evidencias_etapa8.json`: guarda os resultados das nove comparações funcionais.
-- `tests/comparar_desempenho.py`: executa os mesmos pedidos nas duas versões com serviços reais e dados de teste.
-- `tests/gerar_graficos_desempenho.py`: calcula os resumos e gera as figuras a partir dos dados salvos.
-- `docs/desempenho/comparacao_desempenho.md`: reúne os resultados e explica os limites da medição.
-- `docs/desempenho/medicoes.json`: guarda as 22 tentativas com o fallback nas duas versões.
-- `docs/desempenho/medicoes_configuracao_original.json`: preserva a tentativa interrompida pela cota do Gemini.
-- `docs/desempenho/diagnostico_fallback.json`: registra a consulta adicional que identificou a chamada à ferramenta inexistente `JSON`.
-- `docs/desempenho/turnos.csv`: permite conferir os dados por tentativa em uma planilha.
-- `docs/desempenho/resumo.json`: guarda as médias, o p95 e os totais calculados.
-- `docs/desempenho/latencia.png`: compara os tempos individuais, a média e o p95.
-- `docs/desempenho/tokens_custo.png`: compara tokens e custo estimado por tentativa.
-- `docs/desempenho/status_erros.png`: compara os status e as taxas de erro observadas.
-- `docs/desempenho/conexao.png`: compara o tempo de retenção da conexão SQL.
-- `docs/desempenho/escritas_recusadas.png`: mostra o resultado das recusas nas três ferramentas nos testes controlados.
 
 ### Arquivos modificados
 
