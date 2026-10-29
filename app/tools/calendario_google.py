@@ -20,7 +20,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 from langchain.tools import tool
+from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, Field
+from app.tools.db import adiar_google
 
 from app.config.config import (
     BASE_DIR,
@@ -280,12 +282,20 @@ def add_google_event(
     end_time: Optional[str] = None,
     location: Optional[str] = None,
     description: Optional[str] = None,
+    config: RunnableConfig = None,
 ) -> dict:
     """
     Cria o compromisso no Google Calendar da conta autenticada, via MCP oficial
     da Google (HTTP). NÃO grava no Postgres — isso é papel da tool add_event.
     Ao marcar um evento novo, chame as DUAS: primeiro add_event, depois esta.
     """
+    argumentos = {
+        "title": title, "start_time": start_time, "end_time": end_time,
+        "location": location, "description": description,
+    }
+    if adiar_google(argumentos, config):
+        return {"status": "pendente", "message": "Envio ao Google aguardando aprovação do turno e confirmação local."}
+
     fim = end_time or _fim_padrao(start_time)
     payload: dict[str, Any] = {
         "summary": title,

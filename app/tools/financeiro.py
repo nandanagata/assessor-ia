@@ -1,7 +1,8 @@
 from typing import Optional, List
 from langchain.tools import tool
 from pydantic import BaseModel, Field
-from app.tools.db import get_conn
+from langchain_core.runnables import RunnableConfig
+from app.tools.db import get_conn, confirmar_operacao, desfazer_operacao, fechar_conexao
 
 class AddTransactionArgs(BaseModel):
     amount: float = Field(..., gt=0, allow_inf_nan=False, description="Valor da transação (use positivo).")
@@ -384,17 +385,19 @@ def add_transaction(
     category_name: Optional[str] = None,
     description: Optional[str] = None,
     payment_method: Optional[str] = None,
+    config: RunnableConfig = None,
 ) -> dict:
     """Insere uma transação financeira no banco de dados Postgres."""
     conn = None
     cur = None
     try:
-        conn = get_conn()
+        conn = get_conn(config)
         cur = conn.cursor()
         resolved_type_id = _resolve_type_id(cur, type_id, type_name)
         resolve_category_id = _resolve_category_id(cur, category_id, category_name)
         
         if not resolved_type_id:
+            desfazer_operacao(conn, config)
             return {"status": "error", "message": "Tipo inválido (use type_id ou type_name: INCOME/EXPENSES/TRANSFER)."}
 
         cur.execute(
@@ -409,21 +412,19 @@ def add_transaction(
         )
 
         new_id, occurred = cur.fetchone()
-        conn.commit()
+        confirmar_operacao(conn, config)
         return {"status": "ok", "id": new_id, "occurred_at": str(occurred)}
 
     except Exception as e:
-        if conn is not None:
-            conn.rollback()
+        desfazer_operacao(conn, config)
         return {"status": "error", "message": str(e)}
     finally:
         try:
             if cur is not None:
                 cur.close()
-            if conn is not None:
-                conn.close()
         except Exception:
             pass
+        fechar_conexao(conn, config)
 
 @tool("search_transactions", args_schema=QueryTransactionArgs)
 def search_transactions(
@@ -435,7 +436,8 @@ def search_transactions(
     payment_method: Optional[str] = None,
     min_date: Optional[str] = None,
     max_date: Optional[str] = None,
-    source_text: Optional[str] = None
+    source_text: Optional[str] = None,
+    config: RunnableConfig = None,
 ) -> dict:
     """
     Use quando o usuário quiser consultar, listar ou analisar transações passadas.
@@ -448,7 +450,7 @@ def search_transactions(
     conn = None
     cur = None
     try:
-        conn = get_conn()
+        conn = get_conn(config)
         cur = conn.cursor()
         query = """
             SELECT
@@ -535,19 +537,19 @@ def search_transactions(
         return {"transactions": results, "status": "ok"}
 
     except Exception as e:
+        desfazer_operacao(conn, config)
         return {"status": "error", "message": str(e)}
     finally:
         try:
             if cur is not None:
                 cur.close()
-            if conn is not None:
-                conn.close()
         except Exception:
             pass
+        fechar_conexao(conn, config)
 
 @tool("saldo_total")
 def saldo_total(
-    
+    config: RunnableConfig = None,
 ) -> dict:
     """
     Retorna o saldo total do usuário (INCOME - EXPENSES) em todo o histórico de transações.
@@ -556,7 +558,7 @@ def saldo_total(
     conn = None
     cur = None
     try:
-        conn = get_conn()
+        conn = get_conn(config)
         cur = conn.cursor()
         query = """
             WITH base_amount AS (
@@ -582,18 +584,18 @@ def saldo_total(
         return {"amounts": results, "status": "ok"}
 
     except Exception as e:
+        desfazer_operacao(conn, config)
         return {"status": "error", "message": str(e)}
     finally:
         try:
             if cur is not None:
                 cur.close()
-            if conn is not None:
-                conn.close()
         except Exception:
             pass
+        fechar_conexao(conn, config)
 
 @tool("saldo_diario")
-def saldo_diario(date_local: str) -> dict:
+def saldo_diario(date_local: str, config: RunnableConfig = None) -> dict:
     """
     Retorna o saldo total do usuário (INCOME - EXPENSES) do dia informado (YYYY-MM-DD) em America/Sao_Paulo.
     A variável recebe o dia informado pelo usuário, por exemplo: "Qual foi meu saldo de hoje?", nesse caso 'date_local' receberá a data de hoje no formato YYYY-MM-DD.
@@ -602,7 +604,7 @@ def saldo_diario(date_local: str) -> dict:
     conn = None
     cur = None
     try:
-        conn = get_conn()
+        conn = get_conn(config)
         cur = conn.cursor()
         query = """
             WITH base_amount AS (
@@ -629,15 +631,15 @@ def saldo_diario(date_local: str) -> dict:
         return {"amounts": results, "status": "ok"}
 
     except Exception as e:
+        desfazer_operacao(conn, config)
         return {"status": "error", "message": str(e)}
     finally:
         try:
             if cur is not None:
                 cur.close()
-            if conn is not None:
-                conn.close()
         except Exception:
             pass
+        fechar_conexao(conn, config)
 
 
 @tool("update_transaction", args_schema=UpdateTransactionArgs)
@@ -653,6 +655,7 @@ def update_transaction(
     description: Optional[str] = None,
     payment_method: Optional[str] = None,
     occurred_at: Optional[str] = None,
+    config: RunnableConfig = None,
 ) -> dict:
     """
     Atualiza uma transação existente.
@@ -667,17 +670,19 @@ def update_transaction(
         description, payment_method, occurred_at,
     ]
     if all(valor is None for valor in campos_atualizacao):
+        desfazer_operacao(None, config)
         return {"status": "error", "message": "Nada para atualizar: forneça pelo menos um campo (amount, type, category, description, payment_method, occurred_at)."}
 
     conn = None
     cur = None
     try:
-        conn = get_conn()
+        conn = get_conn(config)
         cur = conn.cursor()
         # Resolve target_id
         target_id = id
         if target_id is None:
             if not match_text or not date_local:
+                desfazer_operacao(conn, config)
                 return {"status": "error", "message": "Sem 'id': informe match_text E date_local para localizar o registro."}
 
             # Buscar o mais recente no dia local informado que combine o texto
@@ -694,12 +699,14 @@ def update_transaction(
             )
             row = cur.fetchone()
             if not row:
+                desfazer_operacao(conn, config)
                 return {"status": "error", "message": "Nenhuma transação encontrada para os filtros fornecidos."}
             target_id = row[0]
 
         # Resolver type_id / category_id a partir de nomes, se fornecidos
         resolved_type_id = _resolve_type_id(cur, type_id, type_name) if (type_id or type_name) else None
         if type_name and resolved_type_id is None:
+            desfazer_operacao(conn, config)
             return {"status": "error", "message": "Tipo de transação inválido; nenhuma alteração foi feita."}
         resolved_category_id = category_id
         if category_name and not category_id:
@@ -728,6 +735,7 @@ def update_transaction(
             params.append(occurred_at)
 
         if not sets:
+            desfazer_operacao(conn, config)
             return {"status": "error", "message": "Nenhum campo válido para atualizar."}
 
         params.append(target_id)
@@ -737,7 +745,10 @@ def update_transaction(
             params
         )
         rows_affected = cur.rowcount
-        conn.commit()
+        if rows_affected == 0:
+            desfazer_operacao(conn, config)
+            return {"status": "error", "rows_affected": 0, "message": "Nenhuma transação encontrada para o ID informado."}
+        confirmar_operacao(conn, config)
 
         # Retornar o registro atualizado
         cur.execute(
@@ -775,17 +786,15 @@ def update_transaction(
         }
 
     except Exception as e:
-        if conn is not None:
-            conn.rollback()
+        desfazer_operacao(conn, config)
         return {"status": "error", "message": str(e)}
     finally:
         try:
             if cur is not None:
                 cur.close()
-            if conn is not None:
-                conn.close()
         except Exception:
             pass
+        fechar_conexao(conn, config)
 
 
 # Exporta a lista de tools

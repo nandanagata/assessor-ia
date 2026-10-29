@@ -249,6 +249,10 @@ def fechar_turno(turno_id: str, session_id: str, rota: str, status: str) -> None
 
 def status_do_estado(estado: dict) -> str:
     """Bloqueio de entrada é o sistema funcionando. Erro fica para a exceção."""
+    if estado.get("erro_escrita") or estado.get("veredito_juiz") == "erro":
+        return "erro"
+    if estado.get("veredito_juiz") == "recusado":
+        return "bloqueado"
     # MemorySaver acumula agentes_chamados com operator.add. O último
     # guardrail de entrada é o deste turno; os anteriores são do histórico.
     for nome in reversed(estado.get("agentes_chamados") or []):

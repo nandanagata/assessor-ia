@@ -9,7 +9,9 @@ from app.guardrail import guardrail_entrada, guardrail_saida, anonimizar_entrada
 from app.memory import salvar_mensagem
 from app.observabilidade import abrir_turno, fechar_turno, status_do_estado
 from app.config.agents import router_app, financeiro_app, agenda_app, faq_app, orquestrador_app
-from app.juiz import no_juiz
+from app.juiz import no_juiz, FRASE_SEGURA
+from app.tools.db import iniciar_transacao, concluir_transacao
+from app.tools.calendario_google import add_google_event
 from app.prompts.persona_prompt import contexto_temporal
 
 
@@ -22,6 +24,8 @@ class Estado(MessagesState):
     rota: str
     mapa_pii: dict
     session_id: str
+    veredito_juiz: str
+    erro_escrita: bool
 
 
 # ==============================================================================
@@ -127,6 +131,49 @@ def no_guardrail_saida(estado: Estado) -> dict:
     }
 
 
+def no_confirmar_escritas(estado: Estado, config: RunnableConfig) -> dict:
+    """Só confirma o Postgres após o juiz; não chama outro modelo."""
+    turno_id = config["metadata"]["assessor_turno_id"]
+    # Argumentos inválidos podem falhar no LangChain antes de entrar na tool.
+    erro_tool = False
+    for mensagem in reversed(estado["messages"]):
+        if mensagem.type == "human":
+            break
+        if mensagem.type == "tool" and getattr(mensagem, "status", "") == "error":
+            erro_tool = True
+    aprovado = estado.get("veredito_juiz") == "aprovado" and not erro_tool
+    resultado = concluir_transacao(turno_id, aprovado)
+    if resultado["falhou"] or erro_tool:
+        return {
+            "erro_escrita": True,
+            "messages": [{"role": "assistant", "content":
+                "Não consegui confirmar a operação. Confira os registros antes de tentar novamente."}],
+        }
+    if resultado["escritas"] and not resultado["confirmado"]:
+        return {"messages": [{"role": "assistant", "content":
+            FRASE_SEGURA + " Nenhuma alteração deste turno foi salva."}]}
+
+    # O Google não participa da transação SQL. Só é chamado após o commit.
+    if resultado["google"]:
+        sucesso = True
+        for argumentos in resultado["google"]:
+            try:
+                retorno = add_google_event.invoke(argumentos, config=config)
+                sucesso = sucesso and retorno.get("status") == "ok" and bool(retorno.get("id"))
+            except Exception:
+                sucesso = False
+        aviso = (
+            " Google Calendar: envio confirmado."
+            if sucesso else
+            " O registro local foi salvo, mas não consegui confirmar todos os envios ao Google Calendar."
+        )
+        return {
+            "erro_escrita": not sucesso,
+            "messages": [{"role": "assistant", "content": estado["messages"][-1].text + aviso}],
+        }
+    return {}
+
+
 def no_limpar_turno(estado: Estado) -> dict:
     """Remove mensagens internas de tools antes de salvar o turno no MemorySaver.
 
@@ -191,6 +238,7 @@ grafo.add_node("faq", faq_app)
 grafo.add_node("orquestrador", no_orquestrador)
 grafo.add_node("guardrail_saida", no_guardrail_saida)
 grafo.add_node("juiz", no_juiz)
+grafo.add_node("confirmar_escritas", no_confirmar_escritas)
 grafo.add_node("limpar_turno", no_limpar_turno)
 
 grafo.set_entry_point("guardrail_entrada")
@@ -220,7 +268,8 @@ grafo.add_edge("agenda",          "orquestrador")
 grafo.add_edge("orquestrador",    "guardrail_saida")
 grafo.add_edge("guardrail_saida", "juiz")
 grafo.add_edge("faq",             "juiz")
-grafo.add_edge("juiz",            "limpar_turno")
+grafo.add_edge("juiz",            "confirmar_escritas")
+grafo.add_edge("confirmar_escritas", "limpar_turno")
 grafo.add_edge("limpar_turno",     END)
 
 # Memória centralizada no grafo — persiste o Estado inteiro entre turns
@@ -244,12 +293,15 @@ def executar_fluxo_assessor(
         "rota":             "",
         "mapa_pii":         {},
         "session_id":       session_id,
+        "veredito_juiz":    "",
+        "erro_escrita":     False,
 
     }
 
     # O registro abre antes do invoke e fecha no finally, inclusive quando
     # o grafo levanta. A rota /monitor só lê o que ficou anotado.
     turno_id = abrir_turno()
+    iniciar_transacao(turno_id)
     status = "erro"
     rota = ""
     try:
@@ -262,6 +314,8 @@ def executar_fluxo_assessor(
                 },
                 # Metadata acompanha os nós e modelos, inclusive em outras threads.
                 "metadata": {"assessor_turno_id": turno_id},
+                # Preserva a ordem das tools: uma consulta pode depender da escrita anterior.
+                "max_concurrency": 1,
             },
         )
 
@@ -275,6 +329,8 @@ def executar_fluxo_assessor(
         status = status_do_estado(estado_final)
         return resposta
     finally:
+        # Também desfaz se o grafo falhar antes de chegar ao juiz.
+        concluir_transacao(turno_id, False)
         fechar_turno(turno_id, session_id=session_id, rota=rota, status=status)
     
 

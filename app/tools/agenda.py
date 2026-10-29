@@ -4,7 +4,8 @@ from pydantic import BaseModel, Field
 
 # A conexão com o Postgres agora vem de um lugar só (antes era uma get_conn()
 # local, idêntica à de financeiro.py).
-from app.tools.db import get_conn
+from langchain_core.runnables import RunnableConfig
+from app.tools.db import get_conn, confirmar_operacao, desfazer_operacao, fechar_conexao
 
 
 class AddEventArgs(BaseModel):
@@ -27,12 +28,13 @@ def add_event(
     end_time: Optional[str] = None,
     location: Optional[str] = None,
     notes: Optional[str] = None,
+    config: RunnableConfig = None,
 ) -> dict:
     """Insere um evento/compromisso na agenda (tabela events) do banco de dados Postgres."""
     conn = None
     cur = None
     try:
-        conn = get_conn()
+        conn = get_conn(config)
         cur = conn.cursor()
         cur.execute(
             """
@@ -45,7 +47,7 @@ def add_event(
             (title, start_time, end_time, location, notes, source_text),
         )
         new_id, start, end = cur.fetchone()
-        conn.commit()
+        confirmar_operacao(conn, config)
         return {
             "status": "ok",
             "id": new_id,
@@ -54,17 +56,15 @@ def add_event(
             "end_time": str(end) if end else None,
         }
     except Exception as e:
-        if conn is not None:
-            conn.rollback()
+        desfazer_operacao(conn, config)
         return {"status": "error", "message": str(e)}
     finally:
         try:
             if cur is not None:
                 cur.close()
-            if conn is not None:
-                conn.close()
         except Exception:
             pass
+        fechar_conexao(conn, config)
 
 
 #############
@@ -98,6 +98,7 @@ def query_events(
     date_from_local: Optional[str] = None,
     date_to_local: Optional[str] = None,
     limit: int = 20,
+    config: RunnableConfig = None,
 ) -> dict:
     """
     Consulta eventos da agenda (tabela events) com filtros por texto e datas locais (America/Sao_Paulo).
@@ -109,9 +110,10 @@ def query_events(
     conn = None
     cur = None
     try:
-        conn = get_conn()
+        conn = get_conn(config)
         cur = conn.cursor()
         if date_local and (date_from_local or date_to_local):
+            desfazer_operacao(conn, config)
             return {"status": "error", "message": "Use date_local OU (date_from_local/date_to_local), não ambos."}
 
         where_sql = "WHERE 1=1"
@@ -174,15 +176,15 @@ def query_events(
         return {"status": "ok", "count": len(results), "results": results}
 
     except Exception as e:
+        desfazer_operacao(conn, config)
         return {"status": "error", "message": str(e)}
     finally:
         try:
             if cur is not None:
                 cur.close()
-            if conn is not None:
-                conn.close()
         except Exception:
             pass
+        fechar_conexao(conn, config)
 
 
 # Exporta a lista de tools

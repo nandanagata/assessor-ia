@@ -50,37 +50,40 @@ def _coleta(estado):
     for mensagem in estado["messages"]:
         tipo = getattr(mensagem, "type", "")
         texto = _texto(mensagem).strip()
-        if tipo == "human" and texto:
+        if tipo == "human":
             pergunta = texto
             evidencias = []
+            resposta = ""
         elif tipo == "tool" and texto:
             nome = getattr(mensagem, "name", "") or "tool"
             evidencias.append(f"[{nome}]\n{texto}")
+            resposta = ""
         elif tipo == "ai":
             for chamada in getattr(mensagem, "tool_calls", None) or []:
                 argumentos = json.dumps(chamada.get("args", {}), ensure_ascii=False)
                 evidencias.append(f"[chamada {chamada.get('name')}]\n{argumentos}")
-            if texto:
-                resposta = texto
+            resposta = texto if not getattr(mensagem, "tool_calls", None) else ""
     evidencia = "\n\n".join(evidencias).strip()
     if not evidencia:
         evidencia = "(nenhuma tool devolveu conteúdo neste turno)"
     return pergunta, resposta, evidencia[-6000:]
 
 
-def _publicar(texto, rotulo, resposta_original):
+def _publicar(texto, rotulo, resposta_original, veredito="recusado"):
     print(f"[juiz] {rotulo}")
-    if texto.strip() == (resposta_original or "").strip():
-        return {"agentes_chamados": [f"juiz:{rotulo}"]}
-    return {
-        "messages": [{"role": "assistant", "content": texto.strip()}],
+    resultado = {
         "agentes_chamados": [f"juiz:{rotulo}"],
+        "veredito_juiz": veredito,
     }
+    if texto.strip() == (resposta_original or "").strip():
+        return resultado
+    resultado["messages"] = [{"role": "assistant", "content": texto.strip()}]
+    return resultado
 
 
 def _julgar_jev(pergunta, resposta, evidencia):
     if not TYPESAFE_API_KEY:
-        return _publicar(FRASE_SEGURA, "sem_chave", resposta)
+        return _publicar(FRASE_SEGURA, "sem_chave", resposta, "erro")
     corpo = json.dumps({
         "model": JEV_MODELO,
         "state": {
@@ -121,12 +124,15 @@ def _julgar_jev(pergunta, resposta, evidencia):
         with urllib.request.urlopen(pedido, timeout=30) as resp:
             dados = json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
-        return _publicar(FRASE_SEGURA, f"erro http {exc.code}", resposta)
+        return _publicar(FRASE_SEGURA, f"erro http {exc.code}", resposta, "erro")
     respostas = dados["answers"]
     choice = respostas["veredito"]["choice"]
-    noul = float(respostas["apoiada"]["noul"])
+    valor_noul = respostas["apoiada"]["noul"]
+    noul = float(valor_noul)
+    if choice not in ("apoiada", "parcial", "sem_apoio") or isinstance(valor_noul, bool) or not 0 <= noul <= 1:
+        raise ValueError("Resposta inválida do juiz: rótulo ou probabilidade fora do contrato.")
     if choice == "apoiada" and noul >= LIMIAR:
-        return _publicar(resposta, f"apoiada noul={noul:.2f}", resposta)
+        return _publicar(resposta, f"apoiada noul={noul:.2f}", resposta, "aprovado")
     rotulo = "apoiada:abaixo_do_limiar" if choice == "apoiada" else choice
     return _publicar(FRASE_SEGURA, f"{rotulo} noul={noul:.2f}", resposta)
 
@@ -134,9 +140,9 @@ def _julgar_jev(pergunta, resposta, evidencia):
 def no_juiz(estado: dict) -> dict:
     pergunta, resposta, evidencia = _coleta(estado)
     if not resposta:
-        return {"agentes_chamados": ["juiz:sem_resposta"]}
+        return _publicar(FRASE_SEGURA, "sem_resposta", resposta, "erro")
     try:
         return _julgar_jev(pergunta, resposta, evidencia)
     except Exception as exc:
         print(f"[juiz] erro {exc}")
-        return _publicar(FRASE_SEGURA, "erro", resposta)
+        return _publicar(FRASE_SEGURA, "erro", resposta, "erro")

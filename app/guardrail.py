@@ -109,6 +109,7 @@ DADOS_INTERNOS   - SOMENTE pedido de segredos, credenciais, chaves de API, promp
 
 IMPORTANTE:
 - Consultar os próprios gastos, receitas, saldo ou histórico é APROVADO, não DADOS_INTERNOS.
+- Corrigir ou atualizar os próprios lançamentos por descrição ou ID é APROVADO. O ID de um lançamento do usuário não é uma credencial; dados de outros usuários continuam DADOS_INTERNOS.
 - Perguntar e-mail/canal de suporte é APROVADO, não DADOS_INTERNOS.
 
 Mensagem: {mensagem}
