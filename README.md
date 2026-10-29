@@ -122,30 +122,11 @@ A decisão, as alternativas, os limites e os testes estão em
 [`decisao_tecnica.md`](decisao_tecnica.md). A cópia anterior à correção foi
 preservada no commit de referência citado nesse documento.
 
-## 8. Conferência local dos roteiros
+## 8. Validação da solução
 
-Execute os testes com as dependências já instaladas:
-
-```powershell
-.venv\Scripts\python.exe -m unittest discover -s tests -v
-node tests/frontend_session.test.js
-.venv\Scripts\python.exe -m compileall -q app tests
-node --check app/frontend/app.js
-node --check app/frontend/perfil.js
-```
-
-Os testes da suíte `unittest` usam modelos simulados, MongoDB simulado e Qdrant em memória.
-As requisições HTTP externas e o Postgres real ficam bloqueados durante os
-testes. Não é preciso fornecer chaves reais nem cadastrar eventos ou gastos.
-O teste de JavaScript usa apenas os módulos que acompanham o Node.js. Os
-testes `test_etapa8.py` conferem a confirmação/recusa e as falhas do turno.
-
-Para comparar as ferramentas originais com a correção em tabelas temporárias
-do Postgres real, veja o comando e os requisitos em `decisao_tecnica.md`.
-
-Consulte `decisao_tecnica.md` para a relação de alterações, as evidências e os
-limites da validação. Os relatórios de versões anteriores são históricos
-locais e não fazem parte desta entrega.
+As verificações realizadas e as evidências de aprovação e recusa nas três
+ferramentas estão em `decisao_tecnica.md`. Os scripts usados para testar
+ficaram arquivados localmente e não fazem parte desta entrega.
 
 ### Comparação das soluções e desempenho antes e depois
 
@@ -167,7 +148,7 @@ raiz, com a justificativa e as listas de arquivos criados e modificados.
 Preserve o commit anterior para permitir a comparação. O HTML da prática
 não especifica um novo ZIP, PDF, vídeo ou canal de envio ao professor.
 
-A seleção de entrega contém `app/`, `tests/`, `.gitignore`, `README.md`,
+A seleção de entrega contém `app/`, `.gitignore`, `README.md`,
 `requirements.txt`, `LICENSE` e `decisao_tecnica.md`. O arquivo vazio
 `app/tools/connection.py` fica fora dessa seleção. Não inclua `.env`, chaves,
 tokens, `.venv`, caches, `temp/`, `.cursor/` ou relatórios antigos locais.
@@ -178,4 +159,4 @@ precisa de credenciais com cota disponível e dos serviços ativos. A latência
 observada acima do SLO e o limite dos testes do Google estão documentados.
 
 A explicação da solução e os resultados das medições estão concentrados
-no `decisao_tecnica.md`. Os testes essenciais e suas evidências acompanham o código.
+no `decisao_tecnica.md`. As evidências de validação estão no próprio documento.

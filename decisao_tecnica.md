@@ -203,25 +203,25 @@ Nas recusas, o juiz devolveu `[juiz] sem_apoio noul=0.10`. Nas aprovações, dev
 
 Nos casos testados, a recusa desfez a alteração e a aprovação confirmou uma única vez, sem executar novamente a ferramenta.
 
-Os detalhes estão em `tests/evidencias_etapa8.json`, incluindo os testes da versão anterior, em que as alterações permaneciam mesmo depois da recusa. A linha de base está no commit `1b6e64fbb6428245c37104285dc7350846ac915f`.
+Na versão anterior, as três alterações permaneciam após a recusa. A linha de base está no commit `1b6e64fbb6428245c37104285dc7350846ac915f`. Os casos foram:
 
-Também passaram 45 testes Python e cinco cenários do frontend. Esses testes cobrem as falhas e os fluxos existentes com serviços simulados. O envio ao Google Calendar foi verificado de forma simulada; não fizemos um envio real para uma conta Google.
+| Ferramenta | Marcador da versão anterior | Antes → depois da recusa | Commits |
+| --- | --- | --- | --- |
+| `add_transaction` | `E8-add_transaction-ee78277c42` | Nenhum registro → um registro de 30 | 1 |
+| `update_transaction` | `E8-update_transaction-50ffae3c18` | Valor 10 → valor 99 | 1 |
+| `add_event` | `E8-add_event-ce6ca611ee` | Nenhum evento → um evento | 1 |
+
+Antes de preparar a entrega, executamos 45 testes Python e cinco cenários do frontend, que passaram. Os scripts dessas verificações ficaram arquivados localmente. Esses testes cobrem as falhas e os fluxos existentes com serviços simulados. O envio ao Google Calendar foi verificado de forma simulada; não fizemos um envio real para uma conta Google.
 
 ## 5. Arquivos criados e modificados
 
 A comparação usa a primeira entrega, no commit
-`1b6e64fbb6428245c37104285dc7350846ac915f`. Os testes de revisão e do frontend
-já existiam na pasta local, mas não estavam naquela entrega. Por isso, aparecem
-como criados em relação ao repositório.
+`1b6e64fbb6428245c37104285dc7350846ac915f`. Os scripts de validação ficaram arquivados localmente; a entrega reúne
+as evidências neste documento.
 
 ### Arquivos criados
 
 - `decisao_tecnica.md`: explica a escolha, as alternativas, as métricas e as evidências.
-- `tests/test_etapa8.py`: testa a aprovação, a recusa e as falhas nas escritas do turno.
-- `tests/test_revisao.py`: testa os fluxos existentes e adapta as simulações ao controle da transação.
-- `tests/frontend_session.test.js`: testa cinco situações do encerramento e da troca de sessão.
-- `tests/verificar_postgres_etapa8.py`: compara a versão anterior e a corrigida em tabelas temporárias do Postgres.
-- `tests/evidencias_etapa8.json`: guarda os resultados das nove comparações funcionais.
 
 ### Arquivos modificados
 
